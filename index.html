@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UV Master Pro - Final Polished</title>
+    <title>UV Checker Generator - Custom UV - Create Cleaner and More Beautiful UVs</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root {
@@ -69,7 +69,7 @@
 
 <div class="app-container">
     <aside class="sidebar">
-        <h2>UV MASTER PRO 4.2</h2>
+        <h2>UV Checker Generator</h2>
 
         <div class="control-section">
             <div class="section-title">Base Layout</div>
@@ -167,11 +167,11 @@
 
     <main class="right-panel">
         <section class="preview-box">
-            <div class="section-title" style="margin:0 0 10px 0">🗺️ PRIMARY 2D WORKSPACE</div>
+            <div class="section-title" style="margin:0 0 10px 0">PRIMARY 2D WORKSPACE</div>
             <div class="canvas-container"><canvas id="uvCanvas"></canvas></div>
         </section>
         <section class="preview-box">
-            <div class="section-title" style="margin:0 0 10px 0">📺 3D CUBE MONITOR</div>
+            <div class="section-title" style="margin:0 0 10px 0">3D CUBE MONITOR</div>
             <div id="three-container"></div>
         </section>
     </main>
@@ -344,7 +344,7 @@
     }
 
     function downloadUV() {
-        const link = document.createElement('a'); link.download = `UV_Master_Pro_4.2.png`; link.href = canvas.toDataURL(); link.click();
+        const link = document.createElement('a'); link.download = `UVchecker.png`; link.href = canvas.toDataURL(); link.click();
     }
 
     window.onload = () => { initPresetUI(); initPalette(); drawUV(); init3D(); };
