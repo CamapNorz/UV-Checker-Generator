@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UV Master Pro - Final Polished</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f0f11;
+            --panel-color: #1a1a1d;
+            --accent-color: #3d7eff;
+            --text-color: #e0e0e0;
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; display: flex; justify-content: center;
+            padding: 20px 0; min-height: 100vh; box-sizing: border-box;
+        }
+
+        .app-container {
+            display: grid; grid-template-columns: 420px 1fr; gap: 20px;
+            width: 98%; max-width: 1700px; padding: 20px;
+            background: var(--panel-color); border-radius: var(--border-radius);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }
+
+        .sidebar { display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow-y: auto; padding-right: 15px; }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+        h2 { margin: 0 0 10px 0; font-size: 1.1rem; border-left: 4px solid var(--accent-color); padding-left: 12px; color: #fff; letter-spacing: 1px; }
+        .section-title { font-size: 0.65rem; color: var(--accent-color); font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 15px 0 8px 0; opacity: 0.8;}
+
+        .control-section { background: rgba(255,255,255,0.03); padding: 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
+        .label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.7rem; color: #888; }
+        .label-val { color: var(--accent-color); font-weight: bold; }
+
+        #dynamic-palette { display: flex; flex-direction: column; gap: 5px; max-height: 180px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; }
+        .color-item { display: grid; grid-template-columns: 40px 1fr 30px; gap: 8px; align-items: center; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 4px; }
+
+        input[type="color"] { -webkit-appearance: none; border: none; width: 100%; height: 28px; cursor: pointer; background: none; padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 5px 8px; background: #000; border: 1px solid #333; color: #fff;
+            border-radius: 4px; font-family: 'Monospace'; font-size: 0.75rem;
+        }
+
+        /* FIX: Added back the preset-stripe style */
+        .preset-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 5px; }
+        .preset-card { height: 30px; border: 1px solid #444; cursor: pointer; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
+        .preset-stripe { flex: 1; width: 100%; }
+
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: #000; border-radius: 2px; outline: none; margin: 8px 0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--accent-color); border-radius: 50%; cursor: pointer; }
+
+        .right-panel { display: flex; flex-direction: column; gap: 15px; }
+        .preview-box { background: #050505; border-radius: 8px; padding: 15px; border: 1px solid #222; }
+        .canvas-container { display: flex; justify-content: center; align-items: center; background: #000; border-radius: 4px; min-height: 500px; }
+        #uvCanvas { max-width: 100%; max-height: 75vh; }
+        #three-container { width: 100%; height: 220px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <aside class="sidebar">
+        <h2>UV MASTER PRO 4.2</h2>
+
+        <div class="control-section">
+            <div class="section-title">Base Layout</div>
+            <div class="label-row"><span>Grid Density</span><span id="v-grid" class="label-val">8</span></div>
+            <input type="range" id="gridSize" value="8" min="2" max="64" oninput="document.getElementById('v-grid').innerText=this.value; drawUV();">
+
+            <div class="label-row"><span>Palette Size</span><span id="v-pal" class="label-val">4</span></div>
+            <input type="range" id="paletteSize" value="4" min="2" max="16" oninput="document.getElementById('v-pal').innerText=this.value; initPalette(); drawUV();">
+            <div id="dynamic-palette"></div>
+            <div class="preset-grid" id="preset-container"></div>
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Coordinate Logic</div>
+            <div class="label-row"><span>Row Label Type</span></div>
+            <select id="rowType" onchange="drawUV()">
+                <option value="letters">Letters (A1, B2...)</option>
+                <option value="numbers">Numbers (1,1, 2,2...)</option>
+            </select>
+
+            <div class="label-row" style="margin-top:10px"><span>Row Direction</span></div>
+            <select id="rowDir" onchange="drawUV()">
+                <option value="top-down">Top to Bottom</option>
+                <option value="bottom-up">Bottom to Top</option>
+            </select>
+
+            <div class="label-row" style="margin-top:10px"><span>Col Direction</span></div>
+            <select id="colDir" onchange="drawUV()">
+                <option value="left-right">Left to Right</option>
+                <option value="right-left">Right to Left</option>
+            </select>
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Appearance & Contrast</div>
+            <select id="fontFamily" onchange="drawUV()" style="margin-bottom:10px">
+                <option value="Monospace">Monospace</option>
+                <option value="Arial Black">Arial Black</option>
+                <option value="Impact">Impact</option>
+            </select>
+
+            <div class="label-row"><span>Contrast Mode</span></div>
+            <select id="contrastMode" onchange="toggleManualColor(); drawUV();">
+                <option value="auto">Auto Contrast</option>
+                <option value="manual">Manual Color</option>
+            </select>
+
+            <div id="manual-color-wrap" style="display:none; margin-top:8px">
+                <input type="color" id="manualTextColor" value="#ffffff" oninput="drawUV()" style="width:100%; height:25px">
+            </div>
+
+            <div class="label-row" style="margin-top:12px"><span>Text Scale</span><span id="v-text" class="label-val">22%</span></div>
+            <input type="range" id="textScale" min="0.1" max="0.5" step="0.01" value="0.22" oninput="document.getElementById('v-text').innerText=Math.round(this.value*100)+'%'; drawUV()">
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Directional Arrow</div>
+            <div class="label-row"><span>Arrow Direction</span></div>
+            <select id="arrowDir" onchange="drawUV()">
+                <option value="down">Down</option>
+                <option value="up">Up</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+            </select>
+            <div class="label-row" style="margin-top:8px"><span>Arrow Scale</span><span id="v-arrow" class="label-val">12%</span></div>
+            <input type="range" id="arrowScale" min="0" max="0.5" step="0.01" value="0.12" oninput="document.getElementById('v-arrow').innerText=Math.round(this.value*100)+'%'; drawUV()">
+
+            <hr style="opacity:0.1; margin:15px 0">
+
+            <div class="label-row"><span>Sub-grids</span></div>
+            <div style="display:flex; align-items:center; gap:10px">
+                <input type="checkbox" id="showSub" onchange="drawUV()">
+                <input type="range" id="subDensity" min="2" max="10" step="1" value="4" oninput="drawUV()" style="flex:1">
+            </div>
+            <input type="color" id="subColor" value="#ffffff" oninput="drawUV()" style="width:100%; height:20px; opacity:0.3; margin-top:5px">
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Block Style & Export</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px">
+                <input type="range" id="gap" min="0" max="40" value="2" oninput="drawUV()">
+                <input type="range" id="radius" min="0" max="100" value="4" oninput="drawUV()">
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:10px">
+                <select id="resolution" onchange="drawUV()">
+                    <option value="1024">1K</option>
+                    <option value="2048" selected>2K</option>
+                    <option value="4096">4K</option>
+                </select>
+                <button onclick="downloadUV()" style="background:#218838; color:white; border:none; padding:10px; font-weight:bold; border-radius:4px; cursor:pointer; flex:1">DOWNLOAD</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="right-panel">
+        <section class="preview-box">
+            <div class="section-title" style="margin:0 0 10px 0">🗺️ PRIMARY 2D WORKSPACE</div>
+            <div class="canvas-container"><canvas id="uvCanvas"></canvas></div>
+        </section>
+        <section class="preview-box">
+            <div class="section-title" style="margin:0 0 10px 0">📺 3D CUBE MONITOR</div>
+            <div id="three-container"></div>
+        </section>
+    </main>
+</div>
+
+<script>
+    const canvas = document.getElementById('uvCanvas');
+    const ctx = canvas.getContext('2d');
+    let scene, camera, renderer, cubeMesh, texture;
+
+    const presets = [
+        ["#2D3250", "#424769", "#7077A1", "#F6B17A"],
+        ["#1a1c2c", "#5d275d", "#b13e53", "#ef7d57"],
+        ["#000000", "#444444", "#888888", "#cccccc"],
+        ["#ff71ce", "#01cdfe", "#05ffa1", "#b967ff"],
+        ["#264653", "#2a9d8f", "#e9c46a", "#f4a261"]
+    ];
+
+    function toggleManualColor() {
+        const mode = document.getElementById('contrastMode').value;
+        document.getElementById('manual-color-wrap').style.display = (mode === 'manual') ? 'block' : 'none';
+    }
+
+    function getContrastColor(hex) {
+        const r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+        return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 128) ? '#111111' : '#FFFFFF';
+    }
+
+    function initPresetUI() {
+        const container = document.getElementById('preset-container');
+        container.innerHTML = '';
+        presets.forEach((p, idx) => {
+            const card = document.createElement('div'); card.className = 'preset-card'; card.onclick = () => applyPreset(idx);
+            p.forEach(c => { const s = document.createElement('div'); s.className = 'preset-stripe'; s.style.backgroundColor = c; card.appendChild(s); });
+            container.appendChild(card);
+        });
+    }
+
+    function initPalette() {
+        const container = document.getElementById('dynamic-palette'), colorCount = parseInt(document.getElementById('paletteSize').value);
+        container.innerHTML = '';
+        for (let i = 0; i < colorCount; i++) {
+            const color = presets[0][i % presets[0].length];
+            const row = document.createElement('div'); row.className = 'color-item';
+            row.innerHTML = `<input type="color" id="p_cp_${i}" value="${color}" oninput="drawUV()"><input type="text" id="p_hex_${i}" value="${color.toUpperCase()}" onchange="syncDynamic(${i})"><span style="font-size:0.5rem; color:#555">#${i+1}</span>`;
+            container.appendChild(row);
+        }
+    }
+
+    function syncDynamic(index) {
+        const cp = document.getElementById(`p_cp_${index}`), hex = document.getElementById(`p_hex_${index}`);
+        if (/^#[0-9A-F]{6}$/i.test(hex.value)) { cp.value = hex.value; drawUV(); }
+    }
+
+    function applyPreset(pIndex) {
+        const colorCount = parseInt(document.getElementById('paletteSize').value), colors = presets[pIndex];
+        for (let i = 0; i < colorCount; i++) {
+            const c = colors[i % colors.length], cp = document.getElementById(`p_cp_${i}`), hex = document.getElementById(`p_hex_${i}`);
+            if (cp) cp.value = c; if (hex) hex.value = c.toUpperCase();
+        }
+        drawUV();
+    }
+
+    function roundRect(ctx, x, y, width, height, radius, fill) {
+        ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.lineTo(x + width - radius, y); ctx.quadraticCurveTo(x + width, y, x + width, y + radius); ctx.lineTo(x + width, y + height - radius); ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height); ctx.lineTo(x + radius, y + height); ctx.quadraticCurveTo(x, y + height, x, y + height - radius); ctx.lineTo(x, y + radius); ctx.quadraticCurveTo(x, y, x + radius, y); ctx.closePath();
+        if (fill) ctx.fill();
+    }
+
+    function drawRealArrow(ctx, x, y, size, direction) {
+        ctx.save();
+        ctx.translate(x, y);
+        if (direction === 'up') ctx.rotate(Math.PI);
+        else if (direction === 'left') ctx.rotate(Math.PI/2);
+        else if (direction === 'right') ctx.rotate(-Math.PI/2);
+
+        const stemHeight = size * 0.7; // Shorter stem
+        const headSize = size * 0.5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, stemHeight);
+        ctx.moveTo(-headSize/2, stemHeight - headSize/2);
+        ctx.lineTo(0, stemHeight);
+        ctx.lineTo(headSize/2, stemHeight - headSize/2);
+
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = size * 0.12;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawUV() {
+        const res = parseInt(document.getElementById('resolution').value); canvas.width = res; canvas.height = res;
+        const gridCount = parseInt(document.getElementById('gridSize').value);
+        const palSize = parseInt(document.getElementById('paletteSize').value);
+        const gap = parseInt(document.getElementById('gap').value) * (res/1024);
+        const radius = parseInt(document.getElementById('radius').value) * (res/1024);
+        const cellSize = res / gridCount;
+        const drawSize = cellSize - gap;
+
+        const palette = [];
+        for(let i=0; i<palSize; i++) {
+            const el = document.getElementById(`p_cp_${i}`); palette.push(el ? el.value : "#000");
+        }
+
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, res, res);
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+        const rowType = document.getElementById('rowType').value;
+        const rowDir = document.getElementById('rowDir').value;
+        const colDir = document.getElementById('colDir').value;
+        const contrastMode = document.getElementById('contrastMode').value;
+        const arrowDir = document.getElementById('arrowDir').value;
+
+        for (let y = 0; y < gridCount; y++) {
+            for (let x = 0; x < gridCount; x++) {
+                const posX = x * cellSize + gap/2, posY = y * cellSize + gap/2;
+                const bgColor = palette[(x + y) % palSize];
+                ctx.fillStyle = bgColor;
+                roundRect(ctx, posX, posY, drawSize, drawSize, Math.min(radius, drawSize/2), true);
+
+                if (document.getElementById('showSub').checked) {
+                    ctx.strokeStyle = document.getElementById('subColor').value;
+                    ctx.lineWidth = Math.max(1, res/2048); ctx.globalAlpha = 0.3;
+                    const subD = parseInt(document.getElementById('subDensity').value); const subStep = drawSize / subD;
+                    for(let i=1; i<subD; i++) {
+                        ctx.beginPath(); ctx.moveTo(posX + i*subStep, posY); ctx.lineTo(posX + i*subStep, posY + drawSize); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(posX, posY + i*subStep); ctx.lineTo(posX + drawSize, posY + i*subStep); ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0;
+                }
+
+                const logicY = (rowDir === 'top-down') ? y : (gridCount - 1 - y);
+                const logicX = (colDir === 'left-right') ? x : (gridCount - 1 - x);
+                let label = (rowType === 'letters') ? String.fromCharCode(65 + logicY) + (logicX + 1) : (logicY + 1) + "," + (logicX + 1);
+
+                const tScale = parseFloat(document.getElementById('textScale').value);
+                const aScale = parseFloat(document.getElementById('arrowScale').value);
+                const fontSize = drawSize * tScale;
+
+                ctx.fillStyle = (contrastMode === 'auto') ? getContrastColor(bgColor) : document.getElementById('manualTextColor').value;
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.font = `bold ${fontSize}px "${document.getElementById('fontFamily').value}"`;
+
+                // FIX: Increased spacing between text baseline and arrow start
+                const textY = posY + drawSize/2 - (aScale > 0 ? fontSize * 0.3 : 0);
+                ctx.fillText(label, posX + drawSize/2, textY);
+
+                if (aScale > 0) {
+                    const arrowSize = drawSize * aScale;
+                    // FIX: Draw arrow further down to create gap
+                    drawRealArrow(ctx, posX + drawSize/2, textY + fontSize * 1.3, arrowSize, arrowDir);
+                }
+            }
+        }
+        if (texture) texture.needsUpdate = true;
+    }
+
+    function init3D() {
+        const container = document.getElementById('three-container');
+        scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000); camera.position.z = 2.8;
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+        texture = new THREE.CanvasTexture(canvas); texture.magFilter = THREE.NearestFilter;
+        cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.3 }));
+        scene.add(cubeMesh); scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        function animate() { requestAnimationFrame(animate); if(cubeMesh){ cubeMesh.rotation.y+=0.005; cubeMesh.rotation.x+=0.002; } renderer.render(scene, camera); }
+        animate();
+    }
+
+    function downloadUV() {
+        const link = document.createElement('a'); link.download = `UV_Master_Pro_4.2.png`; link.href = canvas.toDataURL(); link.click();
+    }
+
+    window.onload = () => { initPresetUI(); initPalette(); drawUV(); init3D(); };
+</script>
+</body>
+</html>
